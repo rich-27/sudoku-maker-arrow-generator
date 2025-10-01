@@ -8,6 +8,11 @@ This tool generates JSON used to replace Sudoku Maker's puzzle element data, wit
 ```
 Preferences -> Advanced -> Enable advanced tools
 ```
+For some examples of the use of this arrow tool, see:
+
+  - [Pivot Sudoku by stephane.bura](https://sudokupad.app/1cia3k2as6)
+  - [Pivot Sudoku - Bastille Day Fireworks by stephane.bura](https://sudokupad.app/p04uc9icuy)
+  - [Slingshot Sudoku - Ups and Downs by stephane.bura](https://sudokupad.app/l5arxvf5co)
 
 ## Usage Instructions
 
