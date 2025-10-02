@@ -21,36 +21,36 @@ class Point(dict):
     self.y = y
     super().__init__(self, **vars(self))
   
-  def __add__(self, other: 'Point'):
+  def __add__(self, other: Point) -> Point:
     if not isinstance(other, Point):
       return NotImplemented
     return Point(self.x + other.x, self.y + other.y)
   
-  def __sub__(self, other: 'Point'):
+  def __sub__(self, other: Point) -> Point:
     if not isinstance(other, Point):
       return NotImplemented
     return Point(self.x - other.x, self.y - other.y)
   
-  def __mul__(self, number: float):
+  def __mul__(self, number: float) -> Point:
     return Point(self.x * number, self.y * number)
   
-  def __isub__(self, other: 'Point'):
+  def __isub__(self, other: Point) -> Point:
     if not isinstance(other, Point):
       return NotImplemented
     self.x -= other.x
     self.y -= other.y
     return self
   
-  def __radd__(self, other: typing.Literal[0] | 'Point'):
+  def __radd__(self, other: typing.Literal[0] | Point) -> Point:
     return self if other == 0 else self.__add__(other)
   
-  def __round__(self, ndigits: int=0):
+  def __round__(self, ndigits: int=0) -> Point:
     return Point(round(self.x, ndigits), round(self.y, ndigits))
   
-  def length(self):
+  def length(self) -> float:
     return math.hypot(self.x, self.y)
 
-  def normalise(self):
+  def normalise(self) -> Point:
     l = self.length()
     if l == 0:
       raise ValueError("Cannot normalise a zero-length vector")
@@ -71,7 +71,7 @@ class ArrowDirections(IntEnum):
   NORTH_WEST = 7
 
   @classmethod
-  def from_key(cls, key: DirectionKey) -> 'ArrowDirections':
+  def from_key(cls, key: DirectionKey) -> ArrowDirections:
     return ArrowDirections(ARROW_DIRECTIONS_KEY_ORDER.index(
       # Easy to mistype given familiarity with wasd
       "x" if key == "s" else key))
@@ -118,22 +118,25 @@ class PointDict(typing.TypedDict):
   x: float
   y: float
 
-ArrowGeometryDict = dict[str, dict[DirectionKey, PointDict | list[PointDict]]]
+class ArrowGeometryDict(typing.TypedDict):
+  arrow_waypoints: dict[DirectionKey, list[PointDict]]
+  arrow_positions: dict[DirectionKey, PointDict]
+  side_positions: dict[DirectionKey, PointDict]
 
 class ArrowGeometry:
   def __init__(self, data: ArrowGeometryDict):
     self.waypoints = {
       ArrowDirections.from_key(key): [
         Point(**waypoint) for waypoint in waypoints]
-      for key, waypoints in data["arrow waypoints"].items()}
+      for key, waypoints in data["arrow_waypoints"].items()}
     
     self.points = {
       ArrowDirections.from_key(key): Point(**point)
-      for key, point in data["arrow positions"].items()}
+      for key, point in data["arrow_positions"].items()}
     
     self.side_points = {
       ArrowDirections.from_key(key): Point(**point)
-      for key, point in data["side positions"].items()}
+      for key, point in data["side_positions"].items()}
 
 
 class ArrowGenerator:
@@ -176,9 +179,9 @@ class ArrowGenerator:
       r'{ "x": \1, "y": \2 }', json)
   
   def writeToFiles(self):
-    for type, colour, arrow_points in self.specifications:
-      base_path = f"output/{type}/{colour}"
-      match type:
+    for type_of_arrows, colour, arrow_points in self.specifications:
+      base_path = f"output/{type_of_arrows}/{colour}"
+      match type_of_arrows:
         case "small":
           line_dict = { f"{base_path}.json": (
             self.make_arrows(arrow_points),
@@ -202,15 +205,21 @@ class ArrowGenerator:
             }, indent=2)))
 
 
-def read_file(path: str) -> ArrowGeometryDict | list[SpecificationDict]:
+def read_file(path: str) -> typing.Any:
   with open(path, "r") as input_file:
     data = json.load(input_file)
   return data
 
+def read_geometry() -> ArrowGeometryDict:
+  return read_file("data/arrow_geometry.json")
+
+def read_input() -> list[SpecificationDict]:
+  return read_file("input.json")
+
 def main():
   arrow_generator = ArrowGenerator(
-    read_file("data/arrow_geometry.json"),
-    read_file("input.json"))
+    read_geometry(),
+    read_input())
   
   arrow_generator.writeToFiles()
 
