@@ -23,6 +23,8 @@ class PointDict(typing.TypedDict):
 
 @dataclass
 class Point():
+  """2D point with vector operations."""
+  
   x: float = 0
   y: float = 0
   
@@ -46,16 +48,20 @@ class Point():
     return math.hypot(self.x, self.y)
 
   def normalise(self) -> Point:
-    l = self.length()
-    if l == 0:
+    """Return a direction vector with unit length."""
+
+    length = self.length()
+    if length == 0:
       raise ValueError("Cannot normalise a zero-length vector")
-    return Point(self.x / l, self.y / l)
+    return Point(self.x / length, self.y / length)
 
 
 DirectionKey = typing.Literal["w", "e", "d", "c", "x", "z", "a", "q", "s"]
 ARROW_DIRECTIONS_KEY_ORDER: tuple[str] = typing.get_args(DirectionKey)[:-1]
 
 class ArrowDirections(IntEnum):
+  """Eight cardinal/ordinal directions numbered clockwise from north."""
+
   NORTH = 0
   NORTH_EAST = 1
   EAST = 2
@@ -67,8 +73,10 @@ class ArrowDirections(IntEnum):
 
   @classmethod
   def from_key(cls, key: DirectionKey) -> ArrowDirections:
+    """Convert direction key (w|e|d|c|x|z|a|q|s) to enum.
+    's' is handled given the intuitive association from wasd."""
+
     return ArrowDirections(ARROW_DIRECTIONS_KEY_ORDER.index(
-      # Easy to mistype given familiarity with wasd
       "x" if key == "s" else key))
 
 
@@ -80,6 +88,8 @@ class SpecificationDict(typing.TypedDict):
 ArrowPoints = list[tuple[Point, ArrowDirections, ArrowDirections]]
 
 class ArrowSpecification:
+  """Parses grid-based arrow specifications into position/direction tuples."""
+
   def __init__(self, data: SpecificationDict):
     self.type_of_arrows = data["type"]
     self.colour = data["colour"]
@@ -90,6 +100,10 @@ class ArrowSpecification:
       for position, direction in self.split_directions(directions)]
     
   def split_directions(self, directions: str) -> list[list[ArrowDirections]]:
+    """Expands shorthand `DirectionKey` representations:
+        "w" -> "w:w", "wd:axq" -> "w:wd:ax:xq:q"""
+    
+    # Pattern: any char not preceded/followed by colon gets duplicated with colon
     expanded_directions = re.sub(r'(?<!:)([^:])(?!:)', r'\1:\1', directions)
     return [
       [ArrowDirections.from_key(direction)
@@ -97,6 +111,8 @@ class ArrowSpecification:
       for index in range(0, len(expanded_directions), 3)]
 
 class ArrowSpecificationFactory:
+  """Implements the ability to iterate a list[ArrowSpecification]."""
+
   def __init__(self, input_data: list[SpecificationDict]):
     self.specifications = [
       ArrowSpecification(specification_dict)
@@ -115,6 +131,8 @@ class ArrowGeometryDict(typing.TypedDict):
   side_positions: dict[DirectionKey, PointDict]
 
 class ArrowGeometry:
+  """Injest arrow_geometry.json as `Point` based dicts."""
+
   def __init__(self, data: ArrowGeometryDict):
     self.waypoints = {
       ArrowDirections.from_key(key): [
@@ -131,6 +149,9 @@ class ArrowGeometry:
 
 
 class ArrowGenerator:
+  """Generates arrow path data for Sudoku Maker from input.json specifications.
+  Handles both simple arrows ("small") and right-angle arrows "bent" with connecting lines."""
+
   ARROW_THICKNESS = 0.0265625
   LINE_THICKNESS = ARROW_THICKNESS + 0.05
   
@@ -174,6 +195,8 @@ class ArrowGenerator:
       r'{ "x": \1, "y": \2 }', json)
   
   def write_to_files(self):
+    """Creates JSON output files containing SVG path coordinates"""
+
     for type_of_arrows, colour, arrow_points in self.specifications:
       base_path = f"output/{type_of_arrows}/{colour}"
       match type_of_arrows:
