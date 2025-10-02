@@ -118,10 +118,10 @@ class PointDict(typing.TypedDict):
   x: float
   y: float
 
-ArrowDataDict = dict[str, dict[DirectionKey, PointDict | list[PointDict]]]
+ArrowGeometryDict = dict[str, dict[DirectionKey, PointDict | list[PointDict]]]
 
-class ArrowData:
-  def __init__(self, data: ArrowDataDict):
+class ArrowGeometry:
+  def __init__(self, data: ArrowGeometryDict):
     self.waypoints = {
       ArrowDirections.from_key(key): [
         Point(**waypoint) for waypoint in waypoints]
@@ -140,15 +140,15 @@ class ArrowGenerator:
   ARROW_THICKNESS = 0.0265625
   LINE_THICKNESS = ARROW_THICKNESS + 0.05
   
-  def __init__(self, arrow_data: ArrowDataDict, input_data: list[SpecificationDict]):
-    self.data = ArrowData(arrow_data)
+  def __init__(self, arrow_geometry: ArrowGeometryDict, input_data: list[SpecificationDict]):
+    self.geometry = ArrowGeometry(arrow_geometry)
     self.specifications = ArrowSpecificationFactory(input_data)
   
   def get_waypoints(self, position: ArrowDirections, direction: ArrowDirections) -> list[Point]:
     if position == direction:
-      return self.data.waypoints[direction]
-    offset = self.data.points[position] - self.data.points[direction]
-    return [waypoint + offset for waypoint in self.data.waypoints[direction]]
+      return self.geometry.waypoints[direction]
+    offset = self.geometry.points[position] - self.geometry.points[direction]
+    return [waypoint + offset for waypoint in self.geometry.waypoints[direction]]
   
   def offset_waypoints(self, waypoints: list[Point], offset: Point) -> list[Point]:
     return [
@@ -161,13 +161,13 @@ class ArrowGenerator:
   
   def get_line_points(self, position: ArrowDirections, direction: ArrowDirections) -> tuple[Point, Point]:
     bend_position = ArrowDirections((2 * position.value - direction.value) % len(ArrowDirections))
-    bend_point = self.data.points[bend_position]
-    side_point = self.data.side_points[bend_position]
+    bend_point = self.geometry.points[bend_position]
+    side_point = self.geometry.side_points[bend_position]
     side_point = side_point - (side_point - bend_point).normalise() * (self.LINE_THICKNESS / 2)
     return (side_point, bend_point)
   
   def make_lines(self, arrow_points: ArrowPoints) -> list[list[Point]]:
-    return [self.offset_waypoints([*self.get_line_points(position, direction), self.data.points[position]], cell_position)
+    return [self.offset_waypoints([*self.get_line_points(position, direction), self.geometry.points[position]], cell_position)
             for cell_position, position, direction in arrow_points]
   
   def collapse_xy_objects(self, json: str) -> str:
@@ -202,14 +202,14 @@ class ArrowGenerator:
             }, indent=2)))
 
 
-def read_file(path: str) -> ArrowDataDict | list[SpecificationDict]:
+def read_file(path: str) -> ArrowGeometryDict | list[SpecificationDict]:
   with open(path, "r") as input_file:
     data = json.load(input_file)
   return data
 
 def main():
   arrow_generator = ArrowGenerator(
-    read_file("arrow_data.json"),
+    read_file("data/arrow_geometry.json"),
     read_file("input.json"))
   
   arrow_generator.writeToFiles()
