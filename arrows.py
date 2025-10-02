@@ -4,6 +4,7 @@ import json
 import math
 import typing
 from enum import IntEnum
+from dataclasses import dataclass, asdict
 
 """
 Create arrow waypoints according to grid in `input.json` specification dicts
@@ -14,12 +15,16 @@ Arrows are represented by strings according to:
   | z x c |
   +-------+
 """
-  
-class Point(dict):
-  def __init__(self, x: float=0, y: float=0):
-    self.x = x
-    self.y = y
-    super().__init__(self, **vars(self))
+
+
+class PointDict(typing.TypedDict):
+  x: float
+  y: float
+
+@dataclass
+class Point():
+  x: float = 0
+  y: float = 0
   
   def __add__(self, other: Point) -> Point:
     if not isinstance(other, Point):
@@ -104,10 +109,6 @@ class ArrowSpecificationFactory:
              specification.arrow_points)
 
 
-class PointDict(typing.TypedDict):
-  x: float
-  y: float
-
 class ArrowGeometryDict(typing.TypedDict):
   arrow_waypoints: dict[DirectionKey, list[PointDict]]
   arrow_positions: dict[DirectionKey, PointDict]
@@ -156,12 +157,16 @@ class ArrowGenerator:
     bend_position = ArrowDirections((2 * position.value - direction.value) % len(ArrowDirections))
     bend_point = self.geometry.points[bend_position]
     side_point = self.geometry.side_points[bend_position]
-    side_point = side_point - (side_point - bend_point).normalise() * (self.LINE_THICKNESS / 2)
-    return (side_point, bend_point)
+    offset_side_point = side_point - (side_point - bend_point).normalise() * (self.LINE_THICKNESS / 2)
+    return (offset_side_point, bend_point)
   
   def make_lines(self, arrow_points: ArrowPoints) -> list[list[Point]]:
-    return [self.offset_waypoints([*self.get_line_points(position, direction), self.geometry.points[position]], cell_position)
-            for cell_position, position, direction in arrow_points]
+    return [
+      self.offset_waypoints([
+        *self.get_line_points(position, direction),
+        self.geometry.points[position]
+      ], cell_position)
+      for cell_position, position, direction in arrow_points]
   
   def collapse_xy_objects(self, json: str) -> str:
     return re.sub(
@@ -190,7 +195,7 @@ class ArrowGenerator:
         with open(path, "w") as output_file:
           output_file.writelines(
             self.collapse_xy_objects(json.dumps({
-              "lines": lines,
+              "lines": [[asdict(point) for point in row] for row in lines],
               "style": { "thickness": thickness, "color": colour }
             }, indent=2)))
 
