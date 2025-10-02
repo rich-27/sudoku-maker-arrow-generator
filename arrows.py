@@ -160,21 +160,33 @@ class ArrowGenerator:
     self.specifications = ArrowSpecificationFactory(input_data)
   
   def get_waypoints(self, position: ArrowDirections, direction: ArrowDirections) -> list[Point]:
+    """Arrow waypoints are stored with the arrow pointing away from the centre of the cell.
+    For an arrow not pointing away from the centre of the cell, we need to get the arrow pointing
+    in the correct direction and offset it to the correct position."""
+
     if position == direction:
       return self.geometry.waypoints[direction]
     offset = self.geometry.points[position] - self.geometry.points[direction]
     return [waypoint + offset for waypoint in self.geometry.waypoints[direction]]
   
   def offset_waypoints(self, waypoints: list[Point], offset: Point) -> list[Point]:
+    """Adds an offset to each waypoint.
+    Used to transform positions within a cell to positions on the sudoku grid"""
+
     return [
       round(waypoint + offset, 3)
       for waypoint in waypoints]
 
   def make_arrows(self, arrow_points: ArrowPoints) -> list[list[Point]]:
+    """Makes small arrows that are a series of SVG path points defining the shape of the arrow.
+    Can be standalone as small arrows or function as the tip of bent arrows."""
+
     return [self.offset_waypoints(self.get_waypoints(position, direction), cell_position)
             for cell_position, position, direction in arrow_points]
   
   def get_line_points(self, position: ArrowDirections, direction: ArrowDirections) -> tuple[Point, Point]:
+    """Gets three points defining a right angle from the centre of the side of the cell (offset) to the centre of the arrow tip."""
+
     bend_position = ArrowDirections((2 * position.value - direction.value) % len(ArrowDirections))
     bend_point = self.geometry.points[bend_position]
     side_point = self.geometry.side_points[bend_position]
@@ -182,6 +194,9 @@ class ArrowGenerator:
     return (offset_side_point, bend_point)
   
   def make_lines(self, arrow_points: ArrowPoints) -> list[list[Point]]:
+    """Makes lines for body of bent arrows. Tip is an overlaid small arrow.
+    Lines will use stroke rather than fill to draw the arrow body to avoid needing to handle curves."""
+
     return [
       self.offset_waypoints([
         *self.get_line_points(position, direction),
@@ -190,6 +205,15 @@ class ArrowGenerator:
       for cell_position, position, direction in arrow_points]
   
   def collapse_xy_objects(self, json: str) -> str:
+    """Corrects
+        {
+          "x": {x},
+          "y": {y}
+        }
+    to
+        { "x": {x}, "y": {y} }
+    for JSON legibility"""
+
     return re.sub(
       r'\{\s+"x": ([0-9\.\-]+),\s+"y": ([0-9\.\-]+)\s+\}',
       r'{ "x": \1, "y": \2 }', json)
