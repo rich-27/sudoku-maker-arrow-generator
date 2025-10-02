@@ -1,11 +1,3 @@
-import os
-import re
-import json
-import math
-import typing
-from enum import IntEnum
-from dataclasses import dataclass, asdict
-
 """
 Create arrow waypoints according to grid in `input.json` specification dicts
 Arrows are represented by strings according to:
@@ -15,6 +7,14 @@ Arrows are represented by strings according to:
   | z x c |
   +-------+
 """
+
+import os
+import re
+import json
+import math
+import typing
+from enum import IntEnum
+from dataclasses import dataclass, asdict
 
 
 class PointDict(typing.TypedDict):
