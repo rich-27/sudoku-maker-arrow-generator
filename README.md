@@ -47,8 +47,8 @@ The tool currently supports two types of arrows. Instructions are given in the f
 4. When using the `Share` menu to open the puzzle in SudokuPad, use `Edit JSON` to apply the following changes:
     - Add a `"fill": {arrow colour}` property to each line object generated with this tool.
     - This can be achieved using find and replace:
-      - Find: `"color": "#999f",`
-      - Replace: `"color": "#999f","fill": "#999f",`
+      - Find: `"color": "#999f",(\n\s*)"thickness": 1.7`
+      - Replace: `"color": "#999f",$1"fill": "#999f",$1"thickness": 1.7`
 
 ### Bent Arrows
 
@@ -71,7 +71,7 @@ The tool currently supports two types of arrows. Instructions are given in the f
 4. When using the `Share` menu to open the puzzle in SudokuPad, use **Edit JSON** to apply the following changes:
     - Add a `"fill": {arrow colour}` property to each line object generated with this tool.
       - Find: `"color": "#999f",(\n\s*)"thickness": 1.7`
-      - Replace: `"color": "#999f",\1"fill": "#999f",\1"thickness": 1.7`
+      - Replace: `"color": "#999f",$1"fill": "#999f",$1"thickness": 1.7`
     - Add a `"stroke-linecap": "square"` property to each arrow object:
       - Find: `"color": "#999f",(\n\s*)"thickness": 4.9`
-      - Replace: `"color": "#999f",\1"thickness": 4.9,\1"stroke-linecap": "square"`
+      - Replace: `"color": "#999f",$1"thickness": 4.9,$1"stroke-linecap": "square"`
