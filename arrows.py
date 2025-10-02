@@ -178,7 +178,7 @@ class ArrowGenerator:
       r'\{\s+"x": ([0-9\.\-]+),\s+"y": ([0-9\.\-]+)\s+\}',
       r'{ "x": \1, "y": \2 }', json)
   
-  def writeToFiles(self):
+  def write_to_files(self):
     for type_of_arrows, colour, arrow_points in self.specifications:
       base_path = f"output/{type_of_arrows}/{colour}"
       match type_of_arrows:
@@ -221,7 +221,7 @@ def main():
     read_geometry(),
     read_input())
   
-  arrow_generator.writeToFiles()
+  arrow_generator.write_to_files()
 
 if __name__ == "__main__":
   main()
