@@ -34,16 +34,6 @@ class Point(dict):
   def __mul__(self, number: float) -> Point:
     return Point(self.x * number, self.y * number)
   
-  def __isub__(self, other: Point) -> Point:
-    if not isinstance(other, Point):
-      return NotImplemented
-    self.x -= other.x
-    self.y -= other.y
-    return self
-  
-  def __radd__(self, other: typing.Literal[0] | Point) -> Point:
-    return self if other == 0 else self.__add__(other)
-  
   def __round__(self, ndigits: int=0) -> Point:
     return Point(round(self.x, ndigits), round(self.y, ndigits))
   
