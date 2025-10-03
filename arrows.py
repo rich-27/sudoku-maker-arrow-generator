@@ -13,10 +13,6 @@ from enum import Enum
 from dataclasses import dataclass, asdict, astuple
 
 
-class PointDict(typing.TypedDict):
-  x: float
-  y: float
-
 @dataclass
 class Point():
   """2D point with vector operations."""
@@ -123,14 +119,50 @@ class ArrowDirections(Enum):
     return ArrowDirections(astuple(round(point.normalise())))
 
 
-class SpecificationDict(typing.TypedDict):
-  colour: str
-  grid: list[list[str]]
+class FileInjester:
+  def read_file(self, filepath: str) -> typing.Any:
+    with open(filepath, "r") as input_file:
+      data = json.load(input_file)
+    return data
+
+
+class ArrowGeometry(FileInjester):
+  """Injest arrow_geometry.json as `Point` based dicts."""
+
+  def __init__(self, filepath: str):
+    data = self.read_geometry_file(filepath)
+
+    self.waypoints = {
+      ArrowDirections.from_key(key): [
+        Point(**waypoint) for waypoint in waypoints]
+      for key, waypoints in data["arrow_waypoints"].items()}
+    
+    self.points = {
+      ArrowDirections.from_key(key): Point(**point)
+      for key, point in data["arrow_positions"].items()}
+    
+    self.side_points = {
+      ArrowDirections.from_key(key): Point(**point)
+      for key, point in data["side_positions"].items()}
+  
+  class PointDict(typing.TypedDict):
+    x: float
+    y: float
+
+  class GeometryDict(typing.TypedDict):
+    arrow_waypoints: dict[DirectionKeys, list[ArrowGeometry.PointDict]]
+    arrow_positions: dict[DirectionKeys, ArrowGeometry.PointDict]
+    side_positions: dict[DirectionKeys, ArrowGeometry.PointDict]
+  
+  def read_geometry_file(self, filepath: str) -> ArrowGeometry.GeometryDict:
+    return self.read_file(filepath)
+
 
 class CellSpecification:
   """Parses arrow specification strings into a list of specification tuples."""
 
-  def __init__(self, cell_position: Point, specification_string: str):
+  def __init__(self, geometry_data: ArrowGeometry, cell_position: Point, specification_string: str):
+    self.geometry_data = geometry_data
     self.cell_position = cell_position
     self.injest_specification_string(specification_string)
 
@@ -177,45 +209,32 @@ class CellSpecification:
           self.arrows.append(self.get_arrow_tip(directions))
 
 
-class GridSpecifications:
+class GridSpecifications(FileInjester):
   """Implements the ability to iterate a list[ArrowSpecification]."""
 
-  def __init__(self, input_data: list[SpecificationDict]):
+  def __init__(self, filepath: str, geometry_data: ArrowGeometry):
+    input_data = self.read_specification_file(filepath)
+
     self.specifications = {
       specification_dict["colour"]: [
         CellSpecification(
+          geometry_data,
           Point(column_index, row_index),
           specification_string)
         for row_index, row in enumerate(specification_dict["grid"])
         for column_index, specification_string in enumerate(row)]
       for specification_dict in input_data }
   
+  class SpecificationDict(typing.TypedDict):
+    colour: str
+    grid: list[list[str]]
+  
+  def read_specification_file(self, filepath) -> list[GridSpecifications.SpecificationDict]:
+    return self.read_file(filepath)
+  
   def __iter__(self) -> typing.Generator[tuple[str, CellSpecification], None, None]:
     for colour, cell_specifications in self.specifications.items():
       yield (colour, cell_specifications)
-
-
-class ArrowGeometryDict(typing.TypedDict):
-  arrow_waypoints: dict[DirectionKeys, list[PointDict]]
-  arrow_positions: dict[DirectionKeys, PointDict]
-  side_positions: dict[DirectionKeys, PointDict]
-
-class ArrowGeometry:
-  """Injest arrow_geometry.json as `Point` based dicts."""
-
-  def __init__(self, data: ArrowGeometryDict):
-    self.waypoints = {
-      ArrowDirections.from_key(key): [
-        Point(**waypoint) for waypoint in waypoints]
-      for key, waypoints in data["arrow_waypoints"].items()}
-    
-    self.points = {
-      ArrowDirections.from_key(key): Point(**point)
-      for key, point in data["arrow_positions"].items()}
-    
-    self.side_points = {
-      ArrowDirections.from_key(key): Point(**point)
-      for key, point in data["side_positions"].items()}
 
 
 class ArrowGenerator:
@@ -227,9 +246,9 @@ class ArrowGenerator:
   ARROW_THICKNESS = 0.0265625
   LINE_THICKNESS = ARROW_THICKNESS + 0.05
   
-  def __init__(self, arrow_geometry: ArrowGeometryDict, input_data: list[SpecificationDict]):
-    self.geometry = ArrowGeometry(arrow_geometry)
-    self.grid_specifications = GridSpecifications(input_data)
+  def __init__(self, arrow_geometry: ArrowGeometry, grid_specifications: GridSpecifications):
+    self.geometry = arrow_geometry
+    self.grid_specifications = grid_specifications
   
   def get_waypoints(self, position: ArrowDirections, direction: ArrowDirections) -> list[Point]:
     """Arrow waypoints are stored with the arrow pointing away from the centre of the cell.
@@ -327,23 +346,11 @@ class ArrowGenerator:
             }, indent=2)))
 
 
-def read_file(path: str) -> typing.Any:
-  with open(path, "r") as input_file:
-    data = json.load(input_file)
-  return data
-
-def read_geometry() -> ArrowGeometryDict:
-  return read_file("data/arrow_geometry.json")
-
-def read_input() -> list[SpecificationDict]:
-  return read_file("input.json")
-
 def main():
-  arrow_generator = ArrowGenerator(
-    read_geometry(),
-    read_input())
+  arrow_geometry = ArrowGeometry("data/arrow_geometry.json")
+  input_specifications = GridSpecifications("input.json", arrow_geometry)
   
-  arrow_generator.write_to_files()
+  ArrowGenerator(arrow_geometry, input_specifications).write_to_files()
 
 if __name__ == "__main__":
   main()
