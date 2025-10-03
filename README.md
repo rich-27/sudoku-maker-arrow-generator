@@ -10,68 +10,95 @@ Preferences -> Advanced -> Enable advanced tools
 ```
 For some examples of the use of this arrow tool, see:
 
-  - [Pivot Sudoku by stephane.bura](https://sudokupad.app/1cia3k2as6)
-  - [Pivot Sudoku - Bastille Day Fireworks by stephane.bura](https://sudokupad.app/p04uc9icuy)
-  - [Slingshot Sudoku - Ups and Downs by stephane.bura](https://sudokupad.app/l5arxvf5co)
+| Example | Puzzle |
+| --- | --- |
+| [Basic arrows] | [Pivot Sudoku] by Stephane Bura |
+| [Coloured arrows] | [Pivot Sudoku - Bastille Day Fireworks] by Stephane Bura |
+| [Angled arrows] | [Slingshot Sudoku - Ups and Downs] by Stephane Bura |
+| [Multiple styles of angled arrows] | [Polyamarrows Slingshot Sudoku] by Stephane Bura|
+
+[Basic arrows]: https://sudokupad.app/1cia3k2as6
+[Coloured arrows]: https://sudokupad.app/p04uc9icuy
+[Angled arrows]: https://sudokupad.app/l5arxvf5co
+[Multiple styles of angled arrows]: https://sudokupad.app/bw8wi3rr0g
+
+[Pivot Sudoku]: https://logic-masters.de/Raetselportal/Raetsel/zeigen.php?id=0003SB
+[Pivot Sudoku - Bastille Day Fireworks]: https://logic-masters.de/Raetselportal/Raetsel/zeigen.php?id=0003UK
+[Slingshot Sudoku - Ups and Downs]: https://logic-masters.de/Raetselportal/Raetsel/zeigen.php?id=0003YA
+[Polyamarrows Slingshot Sudoku]: https://logic-masters.de/Raetselportal/Raetsel/zeigen.php?id=0003ZW
+
+
 
 ## Usage Instructions
-
-The tool currently supports two types of arrows. Instructions are given in the following sections for the creation of each arrow type.
-
-### Small Arrows
 
 1. Edit `arrow-generator/input.json`:
     - It must be a list of specification objects of the following form:
       ```py
       {
-        "type": Literal["small" | "bent"],
-        "colour": r'#[0-9]{9}',
+        "colour": r'#[0-9]{6}',
         "grid": list[list[ArrowString]]
       }
       ```
     - Each `ArrowString` in grid represents a cell and must be of the form `''.join(list[ArrowSpecifier])`
-      - `ArrowSpecifier` is either a single `DirectionLetter` or `f"{DirectionLetter}:{DirectionLetter}"`
-      - `DirectionLetter = Literal['w', 'e' 'd', 'c', 'x', 'z', 'a', 'q']`.
-    - Each `DirectionLetter` corresponds to its associated direction, as indicated in the following diagram:
-      ```
-      +-------+
-      | q w e |
-      | a   d |
-      | z x c |
-      +-------+
-      ```
-    - Arrows can be represented by a single letter or by `{letter}:{letter}` to give the position within the cell and direction separately.
+      - An `ArrowSpecifier` is composed of one or more `DirectionKeys`
+        - See [ArrowSpecifier Syntax](#arrowspecifier-syntax) for details
+      - `DirectionKeys` have values from:
+        ```py
+        Literal['s', 'w', 'e' 'd', 'c', 'x', 'z', 'a', 'q']
+        ```
+      - Each `DirectionLetter` corresponds to its associated direction, as indicated in the following diagram:
+        ```
+        +-------+
+        | q w e |
+        | a s d |
+        | z x c |
+        +-------+
+        ```
 2. Run `arrow-generator/arrows.py`.
-3. This tool generates JSON data for each specification in `input.json`. For each JSON file:
-    - On Sudoku Maker, create a new `Cosmetic lines` element and replace the JSON in `Edit data as JSON` with the contents of `arrow-generator/output/small/{arrow colour}.json`
+    - The tool will generate JSON data for each specification in `input.json`.
+3. For each resultant JSON file:
+    - On Sudoku Maker, create a new `Cosmetic lines` element and replace the JSON in `Edit data as JSON` with the contents of `arrow-generator/output/{arrow colour}/{layer}.json`
 4. When using the `Share` menu to open the puzzle in SudokuPad, use `Edit JSON` to apply the following changes:
-    - Add a `"fill": {arrow colour}` property to each line object generated with this tool.
-    - This can be achieved using find and replace:
-      - Find: `"color": "#999f",(\n\s*)"thickness": 1.7`
-      - Replace: `"color": "#999f",$1"fill": "#999f",$1"thickness": 1.7`
-
-### Bent Arrows
-
-1. Edit `arrow-generator/input.json`:
-    - Add a specification object with `"type": "bent"`.
-    - The remaining fields (`colour`, `grid`) follow the same structure described in [Small Arrows](#small-arrows).
-    > [!NOTE]
-    > The arrow generator only supports bent arrows formed from the following pairs of directions:
-    >```
-    >e:w, e:d, c:d, c:x, z:x, z:a, q:a, q:w
-    >```
-    > Using any other direction pairs will cause the generator to fail.
-2. Run `arrow-generator/arrows.py`.
-3. The tool will generate pairs of JSON files:
-    - `arrow-generator/output/bent/{arrow colour}/1-lines.json`
-    - `arrow-generator/output/bent/{arrow colour}/2-arrows.json`
-  
-   For each file:
-    - On Sudoku Maker, create a new `Cosmetic lines` element and replace the JSON in `Edit data as JSON` with the contents of the generated file.
-4. When using the `Share` menu to open the puzzle in SudokuPad, use **Edit JSON** to apply the following changes:
     - Add a `"fill": {arrow colour}` property to each line object generated with this tool.
       - Find: `"color": "#999f",(\n\s*)"thickness": 1.7`
       - Replace: `"color": "#999f",$1"fill": "#999f",$1"thickness": 1.7`
     - Add a `"stroke-linecap": "square"` property to each arrow object:
       - Find: `"color": "#999f",(\n\s*)"thickness": 4.9`
       - Replace: `"color": "#999f",$1"thickness": 4.9,$1"stroke-linecap": "square"`
+
+## ArrowSpecifier Syntax
+
+This tool supports two types of arrows, the specificiers for each described below:
+
+### Basic Arrows
+
+Small arrows, similar to 🠉, specified by either:
+
+- A pair of `DirectionKeys` joined with a colon:
+  - `f"{DirectionKeys}:{DirectionKeys}"`
+  - The `DirectionKeys` correspond to:
+    - The position of the arrow within within the cell
+    - The direction the arrow
+- A single `DirectionLetter`, such as `'w'`
+  - Shorthand for arrows pointing away from the centre of the cell
+
+### Angled Arrows
+
+Arrows consisting of a both:
+
+- A line extending from an edge of the cell with one or more angles; and
+- A [Basic Arrow](#basic-arrows) tip.
+
+These are specified by either:
+
+- Three or more `DirectionKeys` enclosed within braces, such as `"{qec}"`
+  - a
+- Two `DirectionKeys` enclosed within braces, such as `{az}`
+  - Expands to:
+    ```py
+    f"{{{key_1}{key_1}{key_2}}}"
+    ```
+  - Shorthand to represent an arrow with a 90 degree bend at the position represented by the first `DirectionKeys`
+
+> [!Note]
+> The tool only currently supports right angles. Specifying arrows with acute or obtuse angles, for instance `"{wsc}"` will result in undefined behaviour.

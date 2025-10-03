@@ -128,16 +128,16 @@ class CellSpecification:
     self.cell_position = cell_position
     self.injest_specification_string(specification_string)
 
-  def get_bent_tip(self, bent_arrow_directions: list[ArrowDirections]):
-    tip_position = bent_arrow_directions[-1]
+  def get_arrow_tip(self, line_directions: list[ArrowDirections]):
+    tip_position = line_directions[-1]
     tip_direction = ArrowDirections.from_point(
-      tip_position.get_point() - bent_arrow_directions[-2].get_point())
+      tip_position.get_point() - line_directions[-2].get_point())
     return (tip_position, tip_direction)
   
   def expand_shorthand(self, specification_string: str) -> str:
     """Expands shorthand variants of specification string tokens:
-      Small: "w" -> "w:w", "wd:axq" -> "w:wd:ax:xq:q"
-      Bent: "{wd}" -> "{wwd}" """
+      Basic arrows: "w" -> "w:w", "wd:axq" -> "w:wd:ax:xq:q"
+      Angled arrows: "{wd}" -> "{wwd}" """
     
     # Pattern: any char not preceded/followed by colon or within braces gets duplicated around a colon
     expand_small = lambda string: re.sub(r'(?<!:)(\w)(?!:|\w*\})', r'\1:\1', string)
@@ -154,18 +154,18 @@ class CellSpecification:
     self.arrows: list[tuple[ArrowDirections, ArrowDirections]] = []
     self.lines: list[list[ArrowDirections]] = []
     for token_match in re.finditer(
-        r'(?P<small>\w:\w)|(?:\{(?P<bent>\w+)\})',
+        r'(?P<basic>\w:\w)|(?:\{(?P<angled>\w+)\})',
         self.expand_shorthand(specification_string)):
       match { name: value
               for name, value in token_match.groupdict().items()
               if value is not None }:
-        case { 'small': specification }:
+        case { 'basic': specification }:
           position, direction = ArrowDirections.from_keys(specification.split(':'))
           self.arrows.append((position, direction))
-        case { 'bent': specification }:
+        case { 'angled': specification }:
           directions = ArrowDirections.from_keys(specification)
           self.lines.append(directions)
-          self.arrows.append(self.get_bent_tip(directions))
+          self.arrows.append(self.get_arrow_tip(directions))
 
 
 class GridSpecifications:
@@ -211,7 +211,9 @@ class ArrowGeometry:
 
 class ArrowGenerator:
   """Generates arrow path data for Sudoku Maker from input.json specifications.
-  Handles both simple arrows ("small") and right-angle arrows "bent" with connecting lines."""
+  Handles both:
+    - basic arrows; and
+    - angled arrows consisting of a line and an arrow tip."""
 
   ARROW_THICKNESS = 0.0265625
   LINE_THICKNESS = ARROW_THICKNESS + 0.05
@@ -239,8 +241,8 @@ class ArrowGenerator:
       for waypoint in waypoints]
 
   def make_arrows(self, specification: CellSpecification) -> list[list[Point]]:
-    """Makes small arrows that are a series of SVG path points defining the shape of the arrow.
-    Can be standalone as small arrows or function as the tip of bent arrows."""
+    """Makes basic arrows that are a series of SVG path points defining the shape of the arrow.
+    Can be standalone as basic arrows or function as the tip of angled arrows."""
 
     return [self.offset_waypoints(self.get_waypoints(position, direction), specification.cell_position)
             for position, direction in specification.arrows]
@@ -268,7 +270,7 @@ class ArrowGenerator:
     return [offset_side_point, *points[1:]]
   
   def make_lines(self, specification: CellSpecification) -> list[list[Point]]:
-    """Makes lines for body of bent arrows. Tip is an overlaid small arrow.
+    """Makes lines for angled arrows.
     Lines will use stroke rather than fill to draw the arrow body to avoid needing to handle curves."""
 
     return [
