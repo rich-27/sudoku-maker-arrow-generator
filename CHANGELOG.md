@@ -15,9 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - How does this interact with cell walls?
     - Would likely need a special tip for diagonal wall connections (both corner and side)
 
-[//]: # ([2.0.0] - 2025-10-??)
-
 ## [Unreleased]
+
+## [2.0.0] - 2025-10-03
 
 ### Changed
 
@@ -29,6 +29,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - By default these arrows:
     - start from the adjacent cell wall
     - end in a tip
+- New arrows.py architecture:
+  - Improved separation of concerns
+  - Better encapsulation
+  - Clearer data flow
+  - Better type safety
 
 ### Removed
 
