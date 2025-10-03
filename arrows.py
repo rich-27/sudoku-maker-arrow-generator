@@ -1,29 +1,22 @@
 """
 Create arrow waypoints according to grid in `input.json` specification dicts
-Arrows are represented by strings according to:
-  +-------+
-  | q w e |
-  | a   d |
-  | z x c |
-  +-------+
+Arrows are represented by strings according to `DirectionKeys` and `ArrowDirections` below.
 """
 
 import os
 import re
+import enum
 import json
 import math
 import typing
-from enum import IntEnum
-from dataclasses import dataclass, asdict
+import warnings
+from types import MappingProxyType
+from dataclasses import dataclass, asdict, astuple
 
 
-class PointDict(typing.TypedDict):
-  x: float
-  y: float
-
-@dataclass
+@dataclass(frozen=True)
 class Point():
-  """2D point with vector operations."""
+  """Immutable 2D point with vector operations."""
   
   x: float = 0
   y: float = 0
@@ -54,157 +47,292 @@ class Point():
     if length == 0:
       raise ValueError("Cannot normalise a zero-length vector")
     return Point(self.x / length, self.y / length)
+  
+  def perpendicular(self) -> Point:
+    """Mirror a vector around the negative diagonal, `Point(0, 0) + t * Point(1, 1)`."""
+    
+    return Point(self.y, self.x)
 
 
-DirectionKey = typing.Literal["w", "e", "d", "c", "x", "z", "a", "q", "s"]
-ARROW_DIRECTIONS_KEY_ORDER: tuple[str] = typing.get_args(DirectionKey)[:-1]
+class MetaEnum(enum.EnumMeta):
+  """Metaclass for enabling `value in Enum` behaviour"""
 
-class ArrowDirections(IntEnum):
-  """Eight cardinal/ordinal directions numbered clockwise from north."""
+  def __contains__(cls, item):
+    try:
+      cls(item)
+    except ValueError:
+      return False
+    return True
 
-  NORTH = 0
-  NORTH_EAST = 1
-  EAST = 2
-  SOUTH_EAST = 3
-  SOUTH = 4
-  SOUTH_WEST = 5
-  WEST = 6
-  NORTH_WEST = 7
+class Enum(enum.Enum, metaclass=MetaEnum):
+  """Base class for enabling `value in Enum` behaviour"""
+
+  pass
+
+
+class DirectionKeys(Enum):
+  """Nine keys representing cardinal directions, ordered in a clockwise spiral as per a qwerty layout:
+    +---------------+
+    | q:8  w:1  e:2 |
+    |               |
+    | a:7  s:0  d:3 |
+    |               |
+    | z:6  x:5  c:4 |
+    +---------------+
+  """
+
+  S = "s"
+  W = "w"
+  E = "e"
+  D = "d"
+  C = "c"
+  X = "x"
+  Z = "z"
+  A = "a"
+  Q = "q"
+
+
+class ArrowDirections(Enum):
+  """Nine cardinal directions corresponding to the nine `DirectionKeys`."""
+
+  CENTRE = (0, 0)
+  NORTH = (0, -1)
+  NORTH_EAST = (1, -1)
+  EAST = (1, 0)
+  SOUTH_EAST = (1, 1)
+  SOUTH = (0, 1)
+  SOUTH_WEST = (-1, 1)
+  WEST = (-1, 0)
+  NORTH_WEST = (-1, -1)
 
   @classmethod
-  def from_key(cls, key: DirectionKey) -> ArrowDirections:
-    """Convert direction key (w|e|d|c|x|z|a|q|s) to enum.
-    's' is handled given the intuitive association from wasd."""
+  def from_key(cls, key: str | DirectionKeys) -> ArrowDirections | None:
+    """Convert direction key (s|w|e|d|c|x|z|a|q) to enum."""
 
-    return ArrowDirections(ARROW_DIRECTIONS_KEY_ORDER.index(
-      "x" if key == "s" else key))
-
-
-class SpecificationDict(typing.TypedDict):
-  type: str
-  colour: str
-  grid: list[list[str]]
-
-ArrowPoints = list[tuple[Point, ArrowDirections, ArrowDirections]]
-
-class ArrowSpecification:
-  """Parses grid-based arrow specifications into position/direction tuples."""
-
-  def __init__(self, data: SpecificationDict):
-    self.type_of_arrows = data["type"]
-    self.colour = data["colour"]
-    self.arrow_points = [
-      (Point(column_index, row_index), position, direction)
-      for row_index, row in enumerate(data["grid"])
-      for column_index, directions in enumerate(row)
-      for position, direction in self.split_directions(directions)]
+    if not isinstance(key, DirectionKeys):
+      if key not in DirectionKeys:
+        warnings.warn(f"'{key}' is not a valid DirectionKeys value")
+        return None
+      key = DirectionKeys(key)
     
-  def split_directions(self, directions: str) -> list[list[ArrowDirections]]:
-    """Expands shorthand `DirectionKey` representations:
-        "w" -> "w:w", "wd:axq" -> "w:wd:ax:xq:q"""
-    
-    # Pattern: any char not preceded/followed by colon gets duplicated with colon
-    expanded_directions = re.sub(r'(?<!:)([^:])(?!:)', r'\1:\1', directions)
-    return [
-      [ArrowDirections.from_key(direction)
-       for direction in expanded_directions[index:index + 3].split(':')]
-      for index in range(0, len(expanded_directions), 3)]
+    return list(ArrowDirections)[list(DirectionKeys).index(key)]
 
-class ArrowSpecificationFactory:
-  """Implements the ability to iterate a list[ArrowSpecification]."""
+  @classmethod
+  def from_keys(cls, keys: typing.Iterable[str | DirectionKeys]) -> list[ArrowDirections | None]:
+    """Convert an iterable of direction keys."""
 
-  def __init__(self, input_data: list[SpecificationDict]):
-    self.specifications = [
-      ArrowSpecification(specification_dict)
-      for specification_dict in input_data]
+    return [ArrowDirections.from_key(key) for key in keys]
   
-  def __iter__(self) -> typing.Generator[tuple[str, str, ArrowPoints], None, None]:
-    for specification in self.specifications:
-      yield (specification.type_of_arrows,
-             specification.colour,
-             specification.arrow_points)
-
-
-class ArrowGeometryDict(typing.TypedDict):
-  arrow_waypoints: dict[DirectionKey, list[PointDict]]
-  arrow_positions: dict[DirectionKey, PointDict]
-  side_positions: dict[DirectionKey, PointDict]
-
-class ArrowGeometry:
-  """Injest arrow_geometry.json as `Point` based dicts."""
-
-  def __init__(self, data: ArrowGeometryDict):
-    self.waypoints = {
-      ArrowDirections.from_key(key): [
-        Point(**waypoint) for waypoint in waypoints]
-      for key, waypoints in data["arrow_waypoints"].items()}
+  def get_point(self) -> Point:
+    """Get a 2D vector for use in arithmetic."""
     
-    self.points = {
-      ArrowDirections.from_key(key): Point(**point)
-      for key, point in data["arrow_positions"].items()}
+    return Point(*self.value)
+  
+  @classmethod
+  def from_point(cls, point: Point) -> ArrowDirections:
+    """Convert a 2D vector to its closest `ArrowDirections` approximation."""
     
-    self.side_points = {
-      ArrowDirections.from_key(key): Point(**point)
-      for key, point in data["side_positions"].items()}
+    return ArrowDirections(astuple(round(point.normalise())))
 
 
-class ArrowGenerator:
-  """Generates arrow path data for Sudoku Maker from input.json specifications.
-  Handles both simple arrows ("small") and right-angle arrows "bent" with connecting lines."""
+class JSONFileInjester:
+  """Base class for classes that load a JSON file."""
 
-  ARROW_THICKNESS = 0.0265625
-  LINE_THICKNESS = ARROW_THICKNESS + 0.05
+  @staticmethod
+  def read_file[T](filepath: str) -> T:
+    with open(filepath, "r") as input_file:
+      data = json.load(input_file)
+    return data
+
+
+"""Module level variable for use after instantiation in main."""
+arrow_geometry: ArrowGeometry
+
+class ArrowGeometry(JSONFileInjester):
+  """Injest arrow_geometry.json as immutable `Point` based dicts."""
+
+  def __init__(self, filepath: str):
+    self.read_geometry_file(filepath)
   
-  def __init__(self, arrow_geometry: ArrowGeometryDict, input_data: list[SpecificationDict]):
-    self.geometry = ArrowGeometry(arrow_geometry)
-    self.specifications = ArrowSpecificationFactory(input_data)
+  class _PointDict(typing.TypedDict):
+    x: float
+    y: float
   
-  def get_waypoints(self, position: ArrowDirections, direction: ArrowDirections) -> list[Point]:
-    """Arrow waypoints are stored with the arrow pointing away from the centre of the cell.
+  @staticmethod
+  def map_point_values[T](dict_with_points: dict[T, _PointDict]) -> dict[T, Point]:
+    """Transform dicts with `PointDict` values to dicts with `Point` values."""
+    
+    return {
+      key: Point(**point)
+      for key, point in dict_with_points.items() }
+  
+  @staticmethod
+  def parse_point_keyed_dict[T](point_keyed_dict: dict[DirectionKeys, T]) -> MappingProxyType[ArrowDirections, T]:
+    """Transform dicts with keys that are `DirectionKeys` values to immutable dicts with `ArrowDirections` keys."""
+    
+    return MappingProxyType({
+      direction: value
+      for key, value in point_keyed_dict.items()
+      if (direction := ArrowDirections.from_key(key)) is not None })
+
+  class _GeometryDict(typing.TypedDict):
+    arrow_waypoints: dict[DirectionKeys, list[ArrowGeometry._PointDict]]
+    arrow_positions: dict[DirectionKeys, ArrowGeometry._PointDict]
+    side_positions: dict[DirectionKeys, ArrowGeometry._PointDict]
+  
+  def read_geometry_file(self, filepath: str):
+    """Read geometry .json file and transform into immutable `Point` based dicts."""
+
+    data: ArrowGeometry._GeometryDict = self.read_file(filepath)
+
+    self.waypoints = self.parse_point_keyed_dict({
+      key: tuple(Point(**point) for point in point_list)
+      for key, point_list in data["arrow_waypoints"].items() })
+    
+    self.points = self.parse_point_keyed_dict(
+      self.map_point_values(data["arrow_positions"]))
+    
+    self.side_points = self.parse_point_keyed_dict(
+      self.map_point_values(data["side_positions"]))
+
+
+class ShapeFactory:
+  """Base class for factories that make lists of cell waypoints to facilitate conversion to grid waypoints."""
+
+  STROKE_THICKNESS: float
+  
+  def __init__(self, cell_position: Point):
+    self.cell_position = cell_position
+  
+  def to_grid_waypoints(self, cell_waypoints: list[Point]) -> list[Point]:
+    """Adds an offset to each waypoint.
+    Used to transform positions within a cell to positions on the sudoku grid"""
+
+    return [round(waypoint + self.cell_position, 3) for waypoint in cell_waypoints]
+
+
+class ArrowFactory(ShapeFactory):
+  """Makes basic arrows that are a series of SVG path points defining the shape of the arrow.
+  Can be standalone as basic arrows or function as the tip of angled arrows."""
+
+  STROKE_THICKNESS = 0.0265625
+
+  def __init__(self, cell_position: Point):
+    super().__init__(cell_position)
+
+  def make_arrow(self, position: ArrowDirections, direction: ArrowDirections) -> list[Point]:
+    """Make a basic arrow consisting of a list of grid-referenced waypoints.
+    Arrow waypoints are stored with the arrow pointing away from the centre of the cell.
     For an arrow not pointing away from the centre of the cell, we need to get the arrow pointing
     in the correct direction and offset it to the correct position."""
 
     if position == direction:
-      return self.geometry.waypoints[direction]
-    offset = self.geometry.points[position] - self.geometry.points[direction]
-    return [waypoint + offset for waypoint in self.geometry.waypoints[direction]]
+      return arrow_geometry.waypoints[direction]
+    offset = arrow_geometry.points[position] - arrow_geometry.points[direction]
+    return self.to_grid_waypoints([waypoint + offset for waypoint in arrow_geometry.waypoints[direction]])
+
+
+class LineFactory(ShapeFactory):
+  """Makes lines for angled arrows, each consisting of a series of SVG path points.
+  Lines are designed to use stroke rather than fill to draw the body of an angled arrow to avoid needing to handle curves."""
+
+  STROKE_THICKNESS = ArrowFactory.STROKE_THICKNESS + 0.05
+
+  def __init__(self, cell_position: Point):
+    super().__init__(cell_position)
   
-  def offset_waypoints(self, waypoints: list[Point], offset: Point) -> list[Point]:
-    """Adds an offset to each waypoint.
-    Used to transform positions within a cell to positions on the sudoku grid"""
+  def find_closest_side_point(self, line_point: Point, direction: Point) -> Point:
+    """Get the closest side point to the point along direction.
+    Only works if direction has a component equal to zero, otherwise will effectively project sidepoint from the centre."""
 
-    return [
-      round(waypoint + offset, 3)
-      for waypoint in waypoints]
-
-  def make_arrows(self, arrow_points: ArrowPoints) -> list[list[Point]]:
-    """Makes small arrows that are a series of SVG path points defining the shape of the arrow.
-    Can be standalone as small arrows or function as the tip of bent arrows."""
-
-    return [self.offset_waypoints(self.get_waypoints(position, direction), cell_position)
-            for cell_position, position, direction in arrow_points]
+    return Point(
+      round(line_point.x) if direction.x != 0 else line_point.x,
+      round(line_point.y) if direction.y != 0 else line_point.y)
   
-  def get_line_points(self, position: ArrowDirections, direction: ArrowDirections) -> tuple[Point, Point]:
-    """Gets three points defining a right angle from the centre of the side of the cell (offset) to the centre of the arrow tip."""
+  def make_line(self, positions: list[ArrowDirections]) -> list[Point]:
+    # TODO: Rewrite this method to not use vector flipping and make the direction vectors a lot more clear
+    #       Investigate proper vector rotation, dot product, matrices for line representation
+    #       It should be rotating the vector from bend point to tip point by 90 degrees in the direction of the
+    #       closest cell wall and offsetting the bend point by the distance to the cell wall along that rotated vector
+    """Makes a line from three points. The points define a right angle from the centre of the side of the cell to the centre of the arrow tip.
+    Applies an offset to the point on the cell wall to counteract the locus of radius `STROKE_THICKNESS / 2` around the point."""
 
-    bend_position = ArrowDirections((2 * position.value - direction.value) % len(ArrowDirections))
-    bend_point = self.geometry.points[bend_position]
-    side_point = self.geometry.side_points[bend_position]
-    offset_side_point = side_point - (side_point - bend_point).normalise() * (self.LINE_THICKNESS / 2)
-    return (offset_side_point, bend_point)
-  
-  def make_lines(self, arrow_points: ArrowPoints) -> list[list[Point]]:
-    """Makes lines for body of bent arrows. Tip is an overlaid small arrow.
-    Lines will use stroke rather than fill to draw the arrow body to avoid needing to handle curves."""
+    points = [arrow_geometry.points[position] for position in positions]
 
-    return [
-      self.offset_waypoints([
-        *self.get_line_points(position, direction),
-        self.geometry.points[position]
-      ], cell_position)
-      for cell_position, position, direction in arrow_points]
+    side_point = self.find_closest_side_point(points[0], (
+      (positions[2].get_point() - positions[1].get_point()).normalise().perpendicular()
+      if positions[0] == positions[1]
+      else (points[0] - points[1]).normalise()))
+    
+    offset_side_point = side_point - (side_point - points[1]).normalise() * (self.STROKE_THICKNESS / 2)
+    return self.to_grid_waypoints([offset_side_point, *points[1:]])
+
+
+class CellArrowBuilder:
+  """Parses arrow specification strings into a list of specification tuples."""
+
+  def __init__(self, cell_position: Point, specification_string: str):
+    self.arrow_factory = ArrowFactory(cell_position)
+    self.line_factory = LineFactory(cell_position)
+    self.injest_specification_string(specification_string)
+
+  def make_arrow_tip(self, line_directions: list[ArrowDirections]) -> list[Point]:
+    """Calculates the position and direction of the arrow tip based
+    on the `ArrowDirections` describing the given line"""
+
+    tip_position = line_directions[-1]
+    tip_direction = ArrowDirections.from_point(
+      tip_position.get_point() - line_directions[-2].get_point())
+    return self.arrow_factory.make_arrow(tip_position, tip_direction)
   
-  def collapse_xy_objects(self, json: str) -> str:
+  def expand_shorthand(self, specification_string: str) -> str:
+    """Expands shorthand variants of specification string tokens:
+      Basic arrows: "w" -> "w:w", "wd:axq" -> "w:wd:ax:xq:q"
+      Angled arrows: "{wd}" -> "{wwd}" """
+    
+    def expand_small(string: str) -> str:
+      """Pattern: any char not preceded/followed by colon or within braces gets duplicated around a colon"""
+
+      return re.sub(r'(?<!:)(\w)(?!:|\w*\})', r'\1:\1', string)
+
+    def expand_bent(string: str) -> str:
+      """Pattern: the first of two chars within braces gets duplicated"""
+
+      return re.sub(r'(?<=\{)(\w)(?=\w\})', r'\1\1', string)
+
+    return expand_small(expand_bent(specification_string))
+
+  def injest_specification_string(self, specification_string: str):
+    """Extracts specification tokens from specification_string and transforms
+    them into a list of arrow specifications line specifications."""
+
+    self.arrows: list[list[Point]] = []
+    self.lines: list[list[Point]] = []
+    for token_match in re.finditer(
+        r'(?P<basic>\w:\w)|(?:\{(?P<angled>\w+)\})',
+        self.expand_shorthand(specification_string)):
+      group_dict = {
+        name: value
+        for name, value in token_match.groupdict().items()
+        if value is not None }
+      
+      match group_dict:
+        case { 'basic': specification }:
+          position, direction = ArrowDirections.from_keys(specification.split(':'))
+          self.arrows.append(self.arrow_factory.make_arrow(position, direction))
+        case { 'angled': specification }:
+          directions = ArrowDirections.from_keys(specification)
+          self.lines.append(self.line_factory.make_line(directions))
+          self.arrows.append(self.make_arrow_tip(directions))
+
+
+class ArrowJSONWriter:
+  """Creates JSON output files containing SVG path coordinates"""
+
+  BASE_PATH = "output"
+  
+  @staticmethod
+  def collapse_xy_objects(json: str) -> str:
     """Corrects
         {
           "x": {x},
@@ -218,52 +346,76 @@ class ArrowGenerator:
       r'\{\s+"x": ([0-9\.\-]+),\s+"y": ([0-9\.\-]+)\s+\}',
       r'{ "x": \1, "y": \2 }', json)
   
-  def write_to_files(self):
-    """Creates JSON output files containing SVG path coordinates"""
+  @classmethod
+  def write_file(cls, filename: str, colour: str, shapes: list[list[Point]], thickness: float):
+    """Creates a JSON file containing SVG path coordinates"""
 
-    for type_of_arrows, colour, arrow_points in self.specifications:
-      base_path = f"output/{type_of_arrows}/{colour}"
-      match type_of_arrows:
-        case "small":
-          line_dict = { f"{base_path}.json": (
-            self.make_arrows(arrow_points),
-            self.ARROW_THICKNESS) }
-        case "bent":
-          line_dict = {
-            f"{base_path}/1-lines.json": (
-              self.make_lines(arrow_points),
-              self.LINE_THICKNESS),
-            f"{base_path}/2-arrows.json": (
-              self.make_arrows(arrow_points),
-              self.ARROW_THICKNESS) }
-
-      for path, (lines, thickness) in line_dict.items():
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w") as output_file:
-          output_file.writelines(
-            self.collapse_xy_objects(json.dumps({
-              "lines": [[asdict(point) for point in row] for row in lines],
-              "style": { "thickness": thickness, "color": colour }
-            }, indent=2)))
+    filepath = f"{cls.BASE_PATH}/{colour}/{filename}.json"
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    with open(filepath, "w") as output_file:
+      output_file.writelines(
+        cls.collapse_xy_objects(json.dumps({
+          "lines": [[asdict(point) for point in row] for row in shapes],
+          "style": { "thickness": thickness, "color": colour }
+        }, indent=2)))
 
 
-def read_file(path: str) -> typing.Any:
-  with open(path, "r") as input_file:
-    data = json.load(input_file)
-  return data
+class ArrowBuilder(JSONFileInjester):
+  """Generates arrow path data for Sudoku Maker from input.json specifications.
+  Handles both:
+    - basic arrows; and
+    - angled arrows consisting of a line and an arrow tip."""
+  
+  def __init__(self, colour: str, cell_specifications: list[CellArrowBuilder]):
+    self.colour = colour
 
-def read_geometry() -> ArrowGeometryDict:
-  return read_file("data/arrow_geometry.json")
+    def flatten(list_):
+      return [item for sublist in list_ for item in sublist]
 
-def read_input() -> list[SpecificationDict]:
-  return read_file("input.json")
+    self.arrows = flatten([
+      cell_specification.arrows
+      for cell_specification in cell_specifications])
+    
+    self.lines = (lines if any(
+      (lines := flatten([
+        cell_specification.lines
+        for cell_specification in cell_specifications]))
+    ) else None)
+
+  class _SpecificationDict(typing.TypedDict):
+    colour: str
+    grid: list[list[str]]
+  
+  @classmethod
+  def from_specification_file(cls, filepath: str) -> list[ArrowBuilder]:
+    """Read specifications .json file and use it to create a list of `ArrowBuilders`."""
+
+    input_data: list[ArrowBuilder._SpecificationDict] = cls.read_file(filepath)
+
+    return [
+      ArrowBuilder(specification["colour"], [
+        CellArrowBuilder(Point(column_index, row_index), specification_string)
+        for row_index, row in enumerate(specification["grid"])
+        for column_index, specification_string in enumerate(row)])
+      for specification in input_data]
+  
+  def write_lines_file(self, filename: str):
+    ArrowJSONWriter.write_file(filename, self.colour, self.lines, LineFactory.STROKE_THICKNESS)
+  
+  def write_arrows_file(self, filename: str):
+    ArrowJSONWriter.write_file(filename, self.colour, self.arrows, ArrowFactory.STROKE_THICKNESS)
+
 
 def main():
-  arrow_generator = ArrowGenerator(
-    read_geometry(),
-    read_input())
+  # Initialise module level immutable geometry reference
+  global arrow_geometry
+  arrow_geometry = ArrowGeometry("data/arrow_geometry.json")
   
-  arrow_generator.write_to_files()
+  for arrow_builder in ArrowBuilder.from_specification_file("input.json"):
+    if (has_lines := arrow_builder.lines is not None):
+      arrow_builder.write_lines_file("1-lines")
+    
+    arrow_builder.write_arrows_file("2-arrows" if has_lines else "arrows")
 
 if __name__ == "__main__":
   main()
