@@ -1,11 +1,6 @@
 """
 Create arrow waypoints according to grid in `input.json` specification dicts
-Arrows are represented by strings according to:
-  +-------+
-  | q w e |
-  | a   d |
-  | z x c |
-  +-------+
+Arrows are represented by strings according to `DirectionKeys` and `ArrowDirections` below.
 """
 
 import os
@@ -13,6 +8,7 @@ import re
 import json
 import math
 import typing
+import warnings
 from enum import Enum
 from dataclasses import dataclass, asdict, astuple
 
@@ -59,11 +55,30 @@ class Point():
     return Point(self.y, self.x)
 
 
-DirectionKey = typing.Literal["s", "w", "e", "d", "c", "x", "z", "a", "q"]
-ARROW_DIRECTIONS_KEY_ORDER: tuple[str] = typing.get_args(DirectionKey)
+class DirectionKeys(Enum):
+  """Nine keys representing cardinal directions, ordered in a clockwise spiral as per a qwerty layout:
+    +---------------+
+    | q:8  w:1  e:2 |
+    |               |
+    | a:7  s:0  d:3 |
+    |               |
+    | z:6  x:5  c:4 |
+    +---------------+
+  """
+
+  S = "s"
+  W = "w"
+  E = "e"
+  D = "d"
+  C = "c"
+  X = "x"
+  Z = "z"
+  A = "a"
+  Q = "q"
+
 
 class ArrowDirections(Enum):
-  """Eight cardinal/ordinal directions numbered clockwise from north."""
+  """Nine cardinal directions corresponding to the nine `DirectionKeys`."""
 
   CENTRE = (0, 0)
   NORTH = (0, -1)
@@ -76,13 +91,20 @@ class ArrowDirections(Enum):
   NORTH_WEST = (-1, -1)
 
   @classmethod
-  def from_key(cls, key: DirectionKey) -> ArrowDirections:
+  def from_key(cls, key: str | DirectionKeys) -> ArrowDirections | None:
     """Convert direction key (s|w|e|d|c|x|z|a|q) to enum."""
 
-    return list(ArrowDirections)[ARROW_DIRECTIONS_KEY_ORDER.index(key)]
+    try:
+      if type(key) is not DirectionKeys:
+        key = DirectionKeys(key)
+    except ValueError:
+      warnings.warn(f"'{key}' is not a valid DirectionKeys value")
+      return None
+  
+    return list(ArrowDirections)[list(DirectionKeys).index(key)]
 
   @classmethod
-  def from_keys(cls, keys: typing.Iterable[DirectionKey]) -> list[ArrowDirections]:
+  def from_keys(cls, keys: typing.Iterable[str | DirectionKeys]) -> list[ArrowDirections | None]:
     """Convert an iterable of direction keys."""
 
     return [ArrowDirections.from_key(key) for key in keys]
@@ -167,9 +189,9 @@ class GridSpecifications:
 
 
 class ArrowGeometryDict(typing.TypedDict):
-  arrow_waypoints: dict[DirectionKey, list[PointDict]]
-  arrow_positions: dict[DirectionKey, PointDict]
-  side_positions: dict[DirectionKey, PointDict]
+  arrow_waypoints: dict[DirectionKeys, list[PointDict]]
+  arrow_positions: dict[DirectionKeys, PointDict]
+  side_positions: dict[DirectionKeys, PointDict]
 
 class ArrowGeometry:
   """Injest arrow_geometry.json as `Point` based dicts."""
