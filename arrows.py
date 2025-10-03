@@ -121,8 +121,6 @@ class SpecificationDict(typing.TypedDict):
   colour: str
   grid: list[list[str]]
 
-ArrowPoints = list[tuple[Point, ArrowDirections, ArrowDirections]]
-
 class CellSpecification:
   """Parses arrow specification strings into a list of specification tuples."""
 
