@@ -52,6 +52,8 @@ class Point():
     return Point(self.x / length, self.y / length)
   
   def transpose(self) -> Point:
+    """Mirror a vector around its negative diagonal, `Point(0, 0) + t * Point(1, 1)`."""
+    
     return Point(self.y, self.x)
 
 
@@ -110,10 +112,14 @@ class ArrowDirections(Enum):
     return [ArrowDirections.from_key(key) for key in keys]
   
   def get_point(self) -> Point:
+    """Get a 2D vector for use in arithmetic."""
+    
     return Point(*self.value)
   
   @classmethod
   def from_point(cls, point: Point) -> ArrowDirections:
+    """Convert a 2D vector to its closest `ArrowDirections` approximation."""
+    
     return ArrowDirections(astuple(round(point.normalise())))
 
 
@@ -129,6 +135,9 @@ class CellSpecification:
     self.injest_specification_string(specification_string)
 
   def get_arrow_tip(self, line_directions: list[ArrowDirections]):
+    """Calculates the position and direction of the arrow tip based
+    on the `ArrowDirections` describing the given line"""
+
     tip_position = line_directions[-1]
     tip_direction = ArrowDirections.from_point(
       tip_position.get_point() - line_directions[-2].get_point())
