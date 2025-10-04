@@ -396,7 +396,8 @@ class ArrowBuilder(JSONFileInjester):
       ArrowBuilder(specification["colour"], [
         CellArrowBuilder(Point(column_index, row_index), specification_string)
         for row_index, row in enumerate(specification["grid"])
-        for column_index, specification_string in enumerate(row)])
+        for column_index, specification_string in enumerate(row)
+        if specification_string != ""])
       for specification in input_data]
   
   def write_lines_file(self, filename: str):
