@@ -227,7 +227,7 @@ class ArrowFactory(ShapeFactory):
     in the correct direction and offset it to the correct position."""
 
     if position == direction:
-      return arrow_geometry.waypoints[direction]
+      return self.to_grid_waypoints(arrow_geometry.waypoints[direction])
     offset = arrow_geometry.points[position] - arrow_geometry.points[direction]
     return self.to_grid_waypoints([waypoint + offset for waypoint in arrow_geometry.waypoints[direction]])
 
