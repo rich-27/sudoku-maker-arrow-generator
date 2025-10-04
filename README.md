@@ -27,7 +27,7 @@ For some examples of the use of this arrow tool, see:
 [Slingshot Sudoku - Ups and Downs]: https://logic-masters.de/Raetselportal/Raetsel/zeigen.php?id=0003YA
 [Polyamarrows Slingshot Sudoku]: https://logic-masters.de/Raetselportal/Raetsel/zeigen.php?id=0003ZW
 
-[pivot-sudoku.json]: example-input/polyamarrows-slingshot-sudoku.json
+[pivot-sudoku.json]: example-input/pivot-sudoku.json
 [pivot-sudoku-bastille-day-fireworks.json]: example-input/pivot-sudoku-bastille-day-fireworks.json
 [slingshot-sudoku-ups-and-downs.json]: example-input/slingshot-sudoku-ups-and-downs.json
 [polyamarrows-slingshot-sudoku.json]: example-input/polyamarrows-slingshot-sudoku.json
