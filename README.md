@@ -12,10 +12,10 @@ For some examples of the use of this arrow tool, see:
 
 | Example | Puzzle |
 | --- | --- |
-| [Basic arrows] | [Pivot Sudoku] by Stephane Bura |
-| [Coloured arrows] | [Pivot Sudoku - Bastille Day Fireworks] by Stephane Bura |
-| [Angled arrows] | [Slingshot Sudoku - Ups and Downs] by Stephane Bura |
-| [Multiple styles of angled arrows] | [Polyamarrows Slingshot Sudoku] by Stephane Bura|
+| [Basic arrows] | [Pivot Sudoku] by Stéphane Bura |
+| [Coloured arrows] | [Pivot Sudoku - Bastille Day Fireworks] by Stéphane Bura |
+| [Angled arrows] | [Slingshot Sudoku - Ups and Downs] by Stéphane Bura |
+| [Multiple styles of angled arrows] | [Polyamarrows Slingshot Sudoku] by Stéphane Bura|
 
 [Basic arrows]: https://sudokupad.app/1cia3k2as6
 [Coloured arrows]: https://sudokupad.app/p04uc9icuy
