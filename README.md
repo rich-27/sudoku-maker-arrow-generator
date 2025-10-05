@@ -63,11 +63,11 @@ For some examples of the use of this arrow tool, see:
     - On Sudoku Maker, create a new `Cosmetic lines` element and replace the JSON in `Edit data as JSON` with the contents of `arrow-generator/output/{arrow colour}/{layer}.json`
 4. When using the `Share` menu to open the puzzle in SudokuPad, use `Edit JSON` to apply the following changes:
     - Add a `"fill": {arrow colour}` property to each line object generated with this tool.
-      - Find: `"color": "#999f",(\n\s*)"thickness": 1.7`
-      - Replace: `"color": "#999f",$1"fill": "#999f",$1"thickness": 1.7`
+      - Find: `"color": "#([0-9a-f]+)",(\n\s*)"thickness": 1.7`
+      - Replace: `"color": "#$1",$2"fill": "#$1",$2"thickness": 1.7`
     - Add a `"stroke-linecap": "square"` property to each arrow object:
-      - Find: `"color": "#999f",(\n\s*)"thickness": 4.9`
-      - Replace: `"color": "#999f",$1"thickness": 4.9,$1"stroke-linecap": "square"`
+      - Find: `"color": "#([0-9a-f]+)",(\n\s*)"thickness": 4.9`
+      - Replace: `"color": "#$1",$2"thickness": 4.9,$2"stroke-linecap": "square"`
 
 ## ArrowSpecifier Syntax
 
