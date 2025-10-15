@@ -178,7 +178,6 @@ class ArrowGeometry(JSONFileInjester):
   class _GeometryDict(typing.TypedDict):
     arrow_waypoints: dict[DirectionKeys, list[ArrowGeometry._PointDict]]
     arrow_positions: dict[DirectionKeys, ArrowGeometry._PointDict]
-    side_positions: dict[DirectionKeys, ArrowGeometry._PointDict]
   
   def read_geometry_file(self, filepath: str):
     """Read geometry .json file and transform into immutable `Point` based dicts."""
@@ -191,9 +190,6 @@ class ArrowGeometry(JSONFileInjester):
     
     self.points = self.parse_point_keyed_dict(
       self.map_point_values(data["arrow_positions"]))
-    
-    self.side_points = self.parse_point_keyed_dict(
-      self.map_point_values(data["side_positions"]))
 
 
 class ShapeFactory:
