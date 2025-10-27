@@ -16,21 +16,25 @@ For some examples of the use of this arrow tool, see:
 | [Coloured arrows] | [Pivot Sudoku - Bastille Day Fireworks] by Stéphane Bura | [pivot-sudoku-bastille-day-fireworks.json] |
 | [Angled arrows] | [Slingshot Sudoku - Ups and Downs] by Stéphane Bura | [slingshot-sudoku-ups-and-downs.json] |
 | [Multiple styles of angled arrows] | [Polyamarrows Slingshot Sudoku] by Stéphane Bura | [polyamarrows-slingshot-sudoku.json] |
+| [Double arrows] | [Mirrors Sudoku] by Stéphane Bura | [mirrors-sudoku.json] |
 
 [Basic arrows]: https://sudokupad.app/1cia3k2as6
 [Coloured arrows]: https://sudokupad.app/p04uc9icuy
 [Angled arrows]: https://sudokupad.app/l5arxvf5co
 [Multiple styles of angled arrows]: https://sudokupad.app/bw8wi3rr0g
+[Double arrows]: https://sudokupad.app/uwiovvry0q
 
 [Pivot Sudoku]: https://logic-masters.de/Raetselportal/Raetsel/zeigen.php?id=0003SB
 [Pivot Sudoku - Bastille Day Fireworks]: https://logic-masters.de/Raetselportal/Raetsel/zeigen.php?id=0003UK
 [Slingshot Sudoku - Ups and Downs]: https://logic-masters.de/Raetselportal/Raetsel/zeigen.php?id=0003YA
 [Polyamarrows Slingshot Sudoku]: https://logic-masters.de/Raetselportal/Raetsel/zeigen.php?id=0003ZW
+[Mirrors Sudoku]: https://logic-masters.de/Raetselportal/Raetsel/zeigen.php?id=00049X
 
 [pivot-sudoku.json]: example-input/pivot-sudoku.json
 [pivot-sudoku-bastille-day-fireworks.json]: example-input/pivot-sudoku-bastille-day-fireworks.json
 [slingshot-sudoku-ups-and-downs.json]: example-input/slingshot-sudoku-ups-and-downs.json
 [polyamarrows-slingshot-sudoku.json]: example-input/polyamarrows-slingshot-sudoku.json
+[mirrors-sudoku.json]: example-input/mirrors-sudoku.json
 
 ## Usage Instructions
 
