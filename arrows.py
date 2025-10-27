@@ -134,6 +134,31 @@ class ArrowDirections(Enum):
     
     return ArrowDirections(astuple(round(point.normalise())))
 
+class DoubleArrowDirections(Enum):
+  """Four identifiers representing the four double arrow orientations"""
+
+  VERTICAL = "v"
+  POSITIVE_DIAGONAL = "p"
+  HORIZONTAL = "h"
+  NEGATIVE_DIAGONAL = "n"
+
+  @classmethod
+  def from_key(cls, key: str | DoubleArrowDirections) -> DoubleArrowDirections | None:
+    """Convert key (v|p|h|n) to enum."""
+
+    if not isinstance(key, DoubleArrowDirections):
+      if key not in DoubleArrowDirections:
+        return None
+      key = DoubleArrowDirections(key)
+    
+    return key
+
+  @classmethod
+  def from_keys(cls, keys: typing.Iterable[str | DoubleArrowDirections]) -> list[DoubleArrowDirections | None]:
+    """Convert an iterable of direction keys."""
+
+    return [DoubleArrowDirections.from_key(key) for key in keys]
+
 
 class JSONFileInjester:
   """Base class for classes that load a JSON file."""
@@ -176,20 +201,26 @@ class ArrowGeometry(JSONFileInjester):
       if (direction := ArrowDirections.from_key(key)) is not None })
 
   class _GeometryDict(typing.TypedDict):
-    arrow_waypoints: dict[DirectionKeys, list[ArrowGeometry._PointDict]]
     arrow_positions: dict[DirectionKeys, ArrowGeometry._PointDict]
+    arrow_waypoints: dict[DirectionKeys, list[ArrowGeometry._PointDict]]
+    double_arrow_waypoints: dict[DoubleArrowDirections, list[ArrowGeometry._PointDict]]
   
   def read_geometry_file(self, filepath: str):
     """Read geometry .json file and transform into immutable `Point` based dicts."""
 
     data: ArrowGeometry._GeometryDict = self.read_file(filepath)
+    
+    self.points = self.parse_point_keyed_dict(
+      self.map_point_values(data["arrow_positions"]))
 
     self.waypoints = self.parse_point_keyed_dict({
       key: tuple(Point(**point) for point in point_list)
       for key, point_list in data["arrow_waypoints"].items() })
-    
-    self.points = self.parse_point_keyed_dict(
-      self.map_point_values(data["arrow_positions"]))
+
+    self.double_arrow_waypoints = MappingProxyType({
+      direction: tuple(Point(**point) for point in point_list)
+      for key, point_list in data["double_arrow_waypoints"].items()
+      if (direction := DoubleArrowDirections.from_key(key)) is not None })
 
 
 class ShapeFactory:
@@ -264,10 +295,17 @@ class LineFactory(ShapeFactory):
     return self.to_grid_waypoints([offset_side_point, *points[1:]])
 
 
-class CellArrowBuilder:
+class ArrowBuilderBase:
+  def __init__(self):
+    self.arrows: list[list[Point]] = []
+    self.lines: list[list[Point]] = []
+
+
+class CellArrowBuilder(ArrowBuilderBase):
   """Parses arrow specification strings into a list of specification tuples."""
 
   def __init__(self, cell_position: Point, specification_string: str):
+    super().__init__()
     self.arrow_factory = ArrowFactory(cell_position)
     self.line_factory = LineFactory(cell_position)
     self.injest_specification_string(specification_string)
@@ -301,9 +339,7 @@ class CellArrowBuilder:
   def injest_specification_string(self, specification_string: str):
     """Extracts specification tokens from specification_string and transforms
     them into a list of arrow specifications line specifications."""
-
-    self.arrows: list[list[Point]] = []
-    self.lines: list[list[Point]] = []
+    
     for token_match in re.finditer(
         r'(?P<basic>\w:\w)|(?:\{(?P<angled>\w+)\})',
         self.expand_shorthand(specification_string)):
@@ -320,6 +356,29 @@ class CellArrowBuilder:
           directions = ArrowDirections.from_keys(specification)
           self.lines.append(self.line_factory.make_line(directions))
           self.arrows.append(self.make_arrow_tip(directions))
+
+
+class DoubleArrowBuilder(ArrowBuilderBase):
+  """Parses arrow specification strings into a list of specification tuples."""
+
+  def __init__(self, lines: list[str]):
+    super().__init__()
+    self.injest_double_arrow_grid(lines)
+  
+  def make_arrow(self, position: Point, direction: DoubleArrowDirections) -> list[Point]:
+    """Make a double arrow consisting of a list of grid-referenced waypoints, positioned at the specified coordinate."""
+
+    return [round(waypoint + position, 3) for waypoint in arrow_geometry.double_arrow_waypoints[direction]]
+
+  def injest_double_arrow_grid(self, lines: list[str]):
+    """Extracts double arrows identifiers from double arrow grid and transforms
+    them into a list of arrow specifications."""
+
+    self.arrows = [
+      self.make_arrow(Point(position_index / 4, line_index / 2), direction)
+      for line_index, line in enumerate(lines)
+      for position_index, character in enumerate(line)
+      if (direction := DoubleArrowDirections.from_key(character)) is not None]
 
 
 class ArrowJSONWriter:
@@ -356,13 +415,14 @@ class ArrowJSONWriter:
         }, indent=2)))
 
 
-class ArrowBuilder(JSONFileInjester):
+class ArrowMaker(JSONFileInjester):
   """Generates arrow path data for Sudoku Maker from input.json specifications.
-  Handles both:
-    - basic arrows; and
-    - angled arrows consisting of a line and an arrow tip."""
+  Handles:
+    - basic arrows;
+    - angled arrows consisting of a line and an arrow tip; and
+    - double arrows."""
   
-  def __init__(self, colour: str, cell_specifications: list[CellArrowBuilder]):
+  def __init__(self, colour: str, cell_specifications: list[ArrowBuilderBase]):
     self.colour = colour
 
     def flatten(list_):
@@ -380,20 +440,34 @@ class ArrowBuilder(JSONFileInjester):
 
   class _SpecificationDict(typing.TypedDict):
     colour: str
-    grid: list[list[str]]
-  
+    grid: list[list[str]] | None
+    doubles_grid: list[str] | None
+
   @classmethod
-  def from_specification_file(cls, filepath: str) -> list[ArrowBuilder]:
+  def get_arrow_builders(cls, specification: ArrowMaker._SpecificationDict) -> list[ArrowBuilderBase]:
+    """Convert a specification object to a collection of ArrowBuilders"""
+
+    arrow_builders = []
+
+    if "grid" in specification:
+      for row_index, row in enumerate(specification["grid"]):
+        for column_index, specification_string in enumerate(row):
+          if specification_string != "":
+            arrow_builders.append(CellArrowBuilder(Point(column_index, row_index), specification_string))
+    
+    if "doubles_grid" in specification:
+      arrow_builders.append(DoubleArrowBuilder(specification["doubles_grid"]))
+    
+    return arrow_builders
+
+  @classmethod
+  def from_specification_file(cls, filepath: str) -> list[ArrowMaker]:
     """Read specifications .json file and use it to create a list of `ArrowBuilders`."""
 
-    input_data: list[ArrowBuilder._SpecificationDict] = cls.read_file(filepath)
+    input_data: list[ArrowMaker._SpecificationDict] = cls.read_file(filepath)
 
     return [
-      ArrowBuilder(specification["colour"], [
-        CellArrowBuilder(Point(column_index, row_index), specification_string)
-        for row_index, row in enumerate(specification["grid"])
-        for column_index, specification_string in enumerate(row)
-        if specification_string != ""])
+      ArrowMaker(specification["colour"], cls.get_arrow_builders(specification))
       for specification in input_data]
   
   def write_lines_file(self, filename: str):
@@ -408,7 +482,7 @@ def main():
   global arrow_geometry
   arrow_geometry = ArrowGeometry("data/arrow_geometry.json")
   
-  for arrow_builder in ArrowBuilder.from_specification_file("input.json"):
+  for arrow_builder in ArrowMaker.from_specification_file("input.json"):
     if (has_lines := arrow_builder.lines is not None):
       arrow_builder.write_lines_file("1-lines")
     

@@ -41,8 +41,13 @@ For some examples of the use of this arrow tool, see:
         "colour": r'#[0-9]{6}',
         "grid": list[list[ArrowString]]
       }
+      # or
+      {
+        "colour": r'#[0-9]{6}',
+        "doubles_grid": list[DoublesString]
+      }
       ```
-    - Each `ArrowString` in grid represents a cell and must be of the form `''.join(list[ArrowSpecifier])`
+    - Each `ArrowString` in `grid` represents a cell and must be of the form `''.join(list[ArrowSpecifier])`
       - An `ArrowSpecifier` is composed of one or more `DirectionKeys`
         - See [ArrowSpecifier Syntax](#arrowspecifier-syntax) for details
       - `DirectionKeys` have values from:
@@ -57,12 +62,13 @@ For some examples of the use of this arrow tool, see:
         | z x c |
         +-------+
         ```
+    - A `doubles_grid` is specified as discussed in [Double Arrows](#double-arrows)
 2. Run `arrow-generator/arrows.py`.
     - The tool will generate JSON data for each specification in `input.json`.
 3. For each resultant JSON file:
     - On Sudoku Maker, create a new `Cosmetic lines` element and replace the JSON in `Edit data as JSON` with the contents of `arrow-generator/output/{arrow colour}/{layer}.json`
 4. When using the `Share` menu to open the puzzle in SudokuPad, use `Edit JSON` to apply the following changes:
-    - Add a `"fill": {arrow colour}` property to each line object generated with this tool.
+    - Add a `"fill": {arrow colour}` property to each arrow object generated with this tool.
       - Find:
         ```
         "color": "#([0-9a-f]+)",(\n\s*)"thickness": 1.7
@@ -71,7 +77,16 @@ For some examples of the use of this arrow tool, see:
         ```
         "color": "#$1",$2"fill": "#$1",$2"thickness": 1.7
         ```
-    - Add a `"stroke-linecap": "square"` property to each arrow object:
+      - For white arrows, replace the stroke with a black outline:
+        - Find:
+          ```
+          "color": "#[fF]+",(\n\s*)"fill": "#([fF]+)"
+          ```
+        - Replace:
+          ```
+          "color": "#000000",$1"fill": "#$2"
+          ```
+    - Add a `"stroke-linecap": "square"` property to each line object:
       - Find:
         ```
         "color": "#([0-9a-f]+)",(\n\s*)"thickness": 4.9
@@ -79,6 +94,15 @@ For some examples of the use of this arrow tool, see:
       - Replace:
         ```
         "color": "#$1",$2"thickness": 4.9,$2"stroke-linecap": "square"
+        ```
+    - If making double arrows, add a `"target": "overlay"` property to each arrow object:
+      - Find:
+        ```
+        (\n\s*)"thickness": 1.7
+        ```
+      - Replace:
+        ```
+        $1"target": "overlay",$1"thickness": 1.7
         ```
 
 ## ArrowSpecifier Syntax
@@ -104,6 +128,9 @@ Arrows consisting of a both:
 - A line extending from an edge of the cell with one or more angles; and
 - A [Basic Arrow](#basic-arrows) tip.
 
+> [!Note]
+> Due to the way angled arrows are constructed from a line and a tip, arrows with a different coloured outline to their fill will not work.
+
 These are specified by either:
 
 - Three or more `DirectionKeys` enclosed within braces, such as `"{qec}"`
@@ -117,3 +144,38 @@ These are specified by either:
 
 > [!Note]
 > The tool only currently supports right angles. Specifying arrows with acute or obtuse angles, for instance `"{wsc}"` will result in undefined behaviour.
+
+### Double Arrows
+
+These are specified differently, using a grid corresponding to the edges and corners of the puzzle as opposed to the cells.
+
+- A full `doubles_grid` should look like:
+  ```py
+  [
+    "+ - + - + - + - + - + - + - + - + - +",
+    "|   |   |   |   |   |   |   |   |   |",
+    "+ - + - + - + - + - + - + - + - + - +",
+    "|   | 1 |   |   | 2 |   |   | 3 |   |",
+    "+ - + - + - + - + - + - + - + - + - +",
+    "|   |   |   |   |   |   |   |   |   |",
+    "+ - + - + - + - + - + - + - + - + - +",
+    "|   |   |   |   |   |   |   |   |   |",
+    "+ - + - + - + - + - + - + - + - + - +",
+    "|   | 4 |   |   | 5 |   |   | 6 |   |",
+    "+ - + - + - + - + - + - + - + - + - +",
+    "|   |   |   |   |   |   |   |   |   |",
+    "+ - + - + - + - + - + - + - + - + - +",
+    "|   |   |   |   |   |   |   |   |   |",
+    "+ - + - + - + - + - + - + - + - + - +",
+    "|   | 7 |   |   | 8 |   |   | 9 |   |",
+    "+ - + - + - + - + - + - + - + - + - +",
+    "|   |   |   |   |   |   |   |   |   |",
+    "+ - + - + - + - + - + - + - + - + - +"
+  ]
+  ```
+- Any character can be replaced with one of `'{v|p|h|n}'`, indicating a double arrow in the orientation:
+  - `'v'`: vertical
+  - `'p'`: positive diagonal
+  - `'h'`: horizonal
+  - `'n'`: negative diagonal
+- The other characters in the grid are all decorative and are just used to visually represent where the character corresponds to in the grid.
